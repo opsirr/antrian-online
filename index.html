@@ -2,96 +2,79 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Antrian Realtime</title>
+  <title>Antrian Tamu</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; background: #f9f9f9; }
-    header { 
-      background: #007bff; 
-      color: white; 
-      padding: 15px; 
-      border-radius: 8px; 
-      text-align: center; 
-      margin-bottom: 20px;
-    }
-    header h1 { margin: 0; }
-    #datetime { font-size: 14px; margin-top: 5px; opacity: 0.9; }
-    ul { list-style: none; padding: 0; }
-    li { 
-      background: #fff; 
-      margin: 5px 0; 
-      padding: 12px; 
-      border-radius: 8px; 
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
-      font-size: 15px;
-    }
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background: #f2f2f2; }
+    tr.new-row { background: #d1ffd1; transition: background 1s ease; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>📋 Daftar Antrian</h1>
-    <div id="datetime"></div>
-  </header>
+  <h2>DAFTAR ANTRIAN TAMU</h2>
+  <div id="datetime"></div>
 
-  <ul id="queue"></ul>
+  <table id="queueTable">
+    <thead>
+      <tr>
+        <th>Nomor Antrian</th>
+        <th>Nama Tamu</th>
+        <th>Keperluan</th>
+        <th>Perusahaan</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="queueBody"></tbody>
+  </table>
 
-  <!-- Suara notifikasi -->
-  <audio id="notifSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
+  <audio id="notifSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
 
   <script>
-    const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT2UNBBXzJ61Fr9rldXB-E7ULGIt5EOvG1EbNUFqVjpifHoYFaNHFCXJDxnNzL87MgsbLhJoDuYG64X/pub?output=csv";
-    const REFRESH_MS = 2000; 
+    const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS2xoNWZGglMuqUl5NxEcKy0z4iY4Z99C3hKwhrOmmhmuR_muiSlnr9-3y9fE_QQzcYYsVUzrbKhehD/pub?output=csv";
     let lastLength = 0;
 
-    // Update tanggal & jam
     function updateDateTime() {
       const now = new Date();
-      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-      document.getElementById("datetime").textContent = 
-        now.toLocaleDateString('id-ID', options) + " | " + now.toLocaleTimeString('id-ID');
+      document.getElementById("datetime").textContent =
+        now.toLocaleDateString("id-ID") + " " + now.toLocaleTimeString("id-ID");
     }
     setInterval(updateDateTime, 1000);
     updateDateTime();
 
     async function fetchData() {
-      try {
-        const res = await fetch(SHEET_CSV_URL);
-        const text = await res.text();
-        const rows = text.trim().split("\n").map(r => r.split(","));
-        rows.shift(); // buang header CSV dari sheet
-
-        // jika ada tambahan data baru
-        if (rows.length > lastLength && lastLength > 0) {
-          document.getElementById("notifSound").play();
-        }
-        lastLength = rows.length;
-
-        render(rows);
-      } catch (err) {
-        console.error("Gagal fetch:", err);
-      }
+      const res = await fetch(sheetUrl);
+      const text = await res.text();
+      const rows = text.trim().split("\n").map(r => r.split(","));
+      render(rows.slice(1)); // skip header asli dari Sheet
     }
 
     function render(data) {
-      const list = document.getElementById("queue");
-      list.innerHTML = "";
-      data.slice().reverse().forEach(row => { // terbaru di atas
-        const li = document.createElement("li");
-        li.innerHTML = `
-          <strong>Nomor Antrian:</strong> ${row[0] || "-"}<br>
-          <strong>Nama Tamu:</strong> ${row[1] || "-"}<br>
-          <strong>Keperluan:</strong> ${row[2] || "-"}<br>
-          <strong>Perusahaan:</strong> ${row[3] || "-"}<br>
-          <strong>Status:</strong> ${row[4] || "-"}
+      const tbody = document.getElementById("queueBody");
+      tbody.innerHTML = "";
+
+      data.slice().reverse().forEach((row, idx) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${row[0] || "-"}</td>
+          <td>${row[1] || "-"}</td>
+          <td>${row[2] || "-"}</td>
+          <td>${row[3] || "-"}</td>
+          <td>${row[4] || "-"}</td>
         `;
-        list.appendChild(li);
+        // highlight row baru
+        if (idx === 0 && data.length > lastLength) {
+          tr.classList.add("new-row");
+          document.getElementById("notifSound").play();
+        }
+        tbody.appendChild(tr);
       });
+
+      lastLength = data.length;
     }
 
-    // jalan pertama kali
+    setInterval(fetchData, 3000);
     fetchData();
-    // lalu interval
-    setInterval(fetchData, REFRESH_MS);
   </script>
 </body>
 </html>

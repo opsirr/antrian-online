@@ -5,53 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Antrian Realtime</title>
   <style>
-    body { 
-      font-family: Arial, sans-serif; 
-      padding: 20px; 
-      background: #f4f6f8; 
-    }
-    h1 { 
-      text-align: center; 
-      margin-bottom: 20px; 
-      color: #333;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: #fff;
-      border-radius: 10px;
-      overflow: hidden;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
-    thead {
-      background: #007bff;
-      color: #fff;
-    }
-    th, td {
-      padding: 12px 15px;
-      text-align: left;
-    }
-    tr:nth-child(even) {
-      background: #f9f9f9;
-    }
-    tr:hover {
-      background: #f1f1f1;
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f9f9f9; }
+    h1 { text-align: center; margin-bottom: 5px; }
+    #datetime { text-align: center; color: #666; margin-bottom: 20px; font-size: 14px; }
+    ul { list-style: none; padding: 0; }
+    li { 
+      background: #fff; 
+      margin: 5px 0; 
+      padding: 10px; 
+      border-radius: 8px; 
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
     }
   </style>
 </head>
 <body>
   <h1>📋 Daftar Antrian</h1>
-
-  <table>
-    <thead>
-      <tr>
-        <th>No</th>
-        <th>Nama</th>
-        <th>Status</th>
-      </tr>
-    </thead>
-    <tbody id="queue"></tbody>
-  </table>
+  <div id="datetime"></div>
+  <ul id="queue"></ul>
 
   <!-- Suara notifikasi -->
   <audio id="notifSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
@@ -66,38 +36,47 @@
         const res = await fetch(SHEET_CSV_URL);
         const text = await res.text();
         const rows = text.trim().split("\n").map(r => r.split(","));
-        rows.shift(); // buang header CSV
+        rows.shift(); // buang header
 
-        // Jika ada tambahan data baru
+        // jika ada tambahan data baru
         if (rows.length > lastLength && lastLength > 0) {
           document.getElementById("notifSound").play();
         }
         lastLength = rows.length;
 
-        render(rows);
+        // urutkan terbaru di atas
+        render(rows.reverse());
       } catch (err) {
         console.error("Gagal fetch:", err);
       }
     }
 
     function render(data) {
-      const tbody = document.getElementById("queue");
-      tbody.innerHTML = "";
+      const list = document.getElementById("queue");
+      list.innerHTML = "";
       data.forEach(row => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${row[0]}</td>
-          <td>${row[1] || "-"}</td>
-          <td>${row[2] || "-"}</td>
-        `;
-        tbody.appendChild(tr);
+        const li = document.createElement("li");
+        li.textContent = `No: ${row[0]} | Nama: ${row[1] || "-"} | Status: ${row[2] || "-"}`;
+        list.appendChild(li);
       });
     }
 
-    // Jalankan pertama kali
+    // tampilkan tanggal & jam
+    function updateDateTime() {
+      const now = new Date();
+      const options = { weekday: "long", year: "numeric", month: "long", day: "numeric" };
+      const dateStr = now.toLocaleDateString("id-ID", options);
+      const timeStr = now.toLocaleTimeString("id-ID");
+      document.getElementById("datetime").textContent = `${dateStr} • ${timeStr}`;
+    }
+
+    // jalan pertama kali
     fetchData();
-    // Lalu auto-refresh
+    updateDateTime();
+
+    // lalu interval
     setInterval(fetchData, REFRESH_MS);
+    setInterval(updateDateTime, 1000);
   </script>
 </body>
 </html>

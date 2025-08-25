@@ -5,56 +5,53 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Antrian Realtime</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; background: #f9f9f9; }
-    h1 { text-align: center; margin-bottom: 5px; }
-    #datetime { text-align: center; color: #666; margin-bottom: 20px; font-size: 14px; }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: #fff;
-      border-radius: 8px;
-      overflow: hidden;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    body { 
+      font-family: Arial, sans-serif; 
+      padding: 0; 
+      margin: 0; 
+      background: #f9f9f9; 
     }
-    th, td {
-      padding: 10px;
-      text-align: left;
-      border-bottom: 1px solid #eee;
-    }
-    th {
-      background: #f1f1f1;
-      font-weight: bold;
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: #007bff; /* warna header asli */
+      color: white;
+      padding: 15px;
       text-align: center;
+      font-size: 22px;
+      font-weight: bold;
     }
-    tr:hover {
-      background: #fafafa;
+    #datetime {
+      font-size: 14px;
+      font-weight: normal;
+      margin-top: 5px;
+    }
+    ul { list-style: none; padding: 20px; margin: 0; }
+    li { 
+      background: #fff; 
+      margin: 10px 0; 
+      padding: 12px; 
+      border-radius: 8px; 
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+      font-size: 16px;
     }
   </style>
 </head>
 <body>
-  <h1>📋 Daftar Antrian</h1>
-  <div id="datetime"></div>
+  <header>
+    📋 Daftar Antrian
+    <div id="datetime"></div>
+  </header>
 
-  <table>
-    <thead>
-      <tr>
-        <th>No Antrian</th>
-        <th>Nama Tamu</th>
-        <th>Keperluan</th>
-        <th>Perusahaan</th>
-        <th>Status</th>
-      </tr>
-    </thead>
-    <tbody id="queue"></tbody>
-  </table>
+  <ul id="queue"></ul>
 
   <!-- Suara notifikasi -->
   <audio id="notifSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
 
   <script>
     const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT2UNBBXzJ61Fr9rldXB-E7ULGIt5EOvG1EbNUFqVjpifHoYFaNHFCXJDxnNzL87MgsbLhJoDuYG64X/pub?output=csv";
-    const REFRESH_MS = 2000; // update tiap 2 detik
+    const REFRESH_MS = 2000; 
     let lastLength = 0;
 
     async function fetchData() {
@@ -62,7 +59,7 @@
         const res = await fetch(SHEET_CSV_URL);
         const text = await res.text();
         const rows = text.trim().split("\n").map(r => r.split(","));
-        rows.shift(); // buang header CSV
+        rows.shift(); 
 
         // jika ada tambahan data baru
         if (rows.length > lastLength && lastLength > 0) {
@@ -70,7 +67,7 @@
         }
         lastLength = rows.length;
 
-        // urutkan terbaru di atas
+        // tampilkan terbaru paling atas
         render(rows.reverse());
       } catch (err) {
         console.error("Gagal fetch:", err);
@@ -78,35 +75,27 @@
     }
 
     function render(data) {
-      const tbody = document.getElementById("queue");
-      tbody.innerHTML = "";
+      const list = document.getElementById("queue");
+      list.innerHTML = "";
       data.forEach(row => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td style="text-align:center">${row[0] || "-"}</td>
-          <td>${row[1] || "-"}</td>
-          <td>${row[2] || "-"}</td>
-          <td>${row[3] || "-"}</td>
-          <td>${row[4] || "-"}</td>
-        `;
-        tbody.appendChild(tr);
+        const li = document.createElement("li");
+        li.textContent = `No: ${row[0]} | Nama: ${row[1] || "-"} | Status: ${row[2] || "-"}`;
+        list.appendChild(li);
       });
     }
 
-    // tampilkan tanggal & jam
     function updateDateTime() {
       const now = new Date();
-      const options = { weekday: "long", year: "numeric", month: "long", day: "numeric" };
-      const dateStr = now.toLocaleDateString("id-ID", options);
-      const timeStr = now.toLocaleTimeString("id-ID");
-      document.getElementById("datetime").textContent = `${dateStr} • ${timeStr}`;
+      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+      const date = now.toLocaleDateString('id-ID', options);
+      const time = now.toLocaleTimeString('id-ID');
+      document.getElementById("datetime").textContent = `${date} • ${time}`;
     }
 
     // jalan pertama kali
     fetchData();
     updateDateTime();
-
-    // interval berkala
+    // interval
     setInterval(fetchData, REFRESH_MS);
     setInterval(updateDateTime, 1000);
   </script>

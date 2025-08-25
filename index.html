@@ -1,112 +1,67 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Antrian Realtime</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #111;
-      color: #fff;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      margin: 0;
-    }
-    .container {
-      text-align: center;
-      max-width: 500px;
-      width: 100%;
-    }
-    h1 {
-      font-size: 2rem;
-      margin-bottom: 20px;
-      color: #00ffcc;
-    }
-    .queue {
-      background: #222;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.6);
-    }
-    .queue-item {
-      font-size: 1.5rem;
-      padding: 12px;
-      margin: 6px 0;
-      border-bottom: 1px solid #333;
-      transition: background 0.3s, transform 0.3s;
-    }
-    .queue-item:hover {
-      background: #333;
-    }
-    .highlight {
-      background: #00ffcc;
-      color: #111;
-      font-weight: bold;
-      border-radius: 8px;
-      transform: scale(1.05);
-    }
-    .fade-in {
-      animation: fadeIn 0.5s ease-in-out;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-5px); }
-      to { opacity: 1; transform: translateY(0); }
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f9f9f9; }
+    h1 { text-align: center; }
+    ul { list-style: none; padding: 0; }
+    li { 
+      background: #fff; 
+      margin: 5px 0; 
+      padding: 10px; 
+      border-radius: 8px; 
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>📢 Nomor Antrian</h1>
-    <div id="queue" class="queue">⏳ Memuat data...</div>
-  </div>
+  <h1>📋 Daftar Antrian</h1>
+  <ul id="queue"></ul>
+
+  <!-- Suara notifikasi -->
+  <audio id="notifSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
 
   <script>
-    const SHEET_API_URL = "https://script.google.com/macros/s/AKfycbxeLMB7BC8d4sXewzXYgNwkaErAU5tazeNd0F0kRI8e5pl4s2AhKs3WpkWOlFL_iuS3/exec";
-    const REFRESH_MS = 2000; // refresh tiap 2 detik
-
-    let lastFirstNumber = null; // simpan nomor antrian terakhir
+    const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS2xoNWZGglMuqUl5NxEcKy0z4iY4Z99C3hKwhrOmmhmuR_muiSlnr9-3y9fE_QQzcYYsVUzrbKhehD/pub?output=csv";
+    const REFRESH_MS = 2000; // update tiap 2 detik
+    let lastLength = 0;
 
     async function fetchData() {
       try {
-        const res = await fetch(SHEET_API_URL + "?t=" + Date.now()); // tambahkan timestamp biar tidak cache
-        const data = await res.json();
-        renderData(data);
+        const res = await fetch(SHEET_CSV_URL);
+        const text = await res.text();
+        const rows = text.trim().split("\n").map(r => r.split(","));
+        rows.shift(); // buang header
+
+        // jika ada tambahan data baru
+        if (rows.length > lastLength && lastLength > 0) {
+          document.getElementById("notifSound").play();
+        }
+        lastLength = rows.length;
+
+        render(rows);
       } catch (err) {
-        console.error("Fetch error", err);
-        document.getElementById("queue").innerHTML = "<p>⚠️ Gagal ambil data</p>";
+        console.error("Gagal fetch:", err);
       }
     }
 
-    function renderData(data) {
-      const container = document.getElementById("queue");
-      container.innerHTML = "";
-
-      if (!data.length) {
-        container.innerHTML = "<p>Tidak ada antrian</p>";
-        return;
-      }
-
-      data.forEach((row, index) => {
-        const div = document.createElement("div");
-        div.className = "queue-item" + (index === 0 ? " highlight" : "");
-        div.textContent = `${row.Nomor_Antrian} - ${row.Nama}`;
-
-        // animasi fade-in jika ada nomor baru
-        if (index === 0 && row.Nomor_Antrian !== lastFirstNumber) {
-          div.classList.add("fade-in");
-          lastFirstNumber = row.Nomor_Antrian;
-        }
-
-        container.appendChild(div);
+    function render(data) {
+      const list = document.getElementById("queue");
+      list.innerHTML = "";
+      data.forEach(row => {
+        const li = document.createElement("li");
+        li.textContent = `No: ${row[0]} | Nama: ${row[1] || "-"} | Status: ${row[2] || "-"}`;
+        list.appendChild(li);
       });
     }
 
-    // Auto refresh
-    setInterval(fetchData, REFRESH_MS);
+    // jalan pertama kali
     fetchData();
+    // lalu interval
+    setInterval(fetchData, REFRESH_MS);
   </script>
 </body>
 </html>

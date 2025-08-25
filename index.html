@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Daftar Antrian</title>
+  <style>
+    :root{
+      --bg:#f6f7fb;--card:#ffffff;--text:#1f2937;--muted:#6b7280;--accent:#2563eb;--ok:#16a34a;--danger:#dc2626;
+    }
+    html,body{height:100%;}
+    body{margin:0;font-family:ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background:var(--bg); color:var(--text);}    
+    .container{max-width:1200px;margin:24px auto;padding:0 16px;}
+    .card{background:var(--card);border-radius:16px;box-shadow:0 10px 20px rgba(0,0,0,.06);padding:24px;border:1px solid #e5e7eb}
+    h1{font-size:32px;margin:0 0 16px 0;color:var(--text);}
+    .muted{color:var(--muted)}
+    .toolbar{display:flex;gap:12px;align-items:center;justify-content:flex-end;margin-bottom:12px}
+    .pill{font-size:14px;border-radius:999px;padding:8px 12px;border:1px solid #e5e7eb;background:#f9fafb}
+    .btn{cursor:pointer;border:none;border-radius:999px;padding:8px 14px;font-weight:600}
+    .btn-toggle{background:#e0f2fe}
+    .btn-toggle.on{background:#dcfce7}
+    .btn-toggle.off{background:#fee2e2}
+    table{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden;border-radius:12px;border:1px solid #e5e7eb}
+    thead th{background:#f3f4f6;text-align:left;padding:14px 16px;font-size:16px;font-weight:700;border-bottom:1px solid #e5e7eb}
+    tbody td{padding:14px 16px;font-size:18px;border-bottom:1px solid #f1f5f9}
+    tbody tr:last-child td{border-bottom:none}
+    .empty{padding:18px;color:var(--muted);text-align:center}
+    .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .brand{display:flex;align-items:center;gap:10px}
+    .dot{width:10px;height:10px;border-radius:50%;background:var(--accent)}
+    .time{font-variant-numeric:tabular-nums;color:var(--muted)}
+    @media (min-width:1400px){
+      h1{font-size:36px}
+      thead th{font-size:18px}
+      tbody td{font-size:20px}
+    }
+    /* Full-screen helper for TV browsers */
+    .fs{position:fixed;inset:0;overflow:auto}
+  </style>
+</head>
+<body>
+  <div class="container fs">
+    <div class="card">
+      <div class="header">
+        <div class="brand">
+          <div class="dot"></div>
+          <h1>Daftar Antrian</h1>
+        </div>
+        <div class="toolbar">
+          <span class="pill time" id="clock">--:--</span>
+          <button id="toggleRefresh" class="btn btn-toggle on" aria-pressed="true">Auto-Refresh: ON</button>
+        </div>
+      </div>
+      <div class="muted" style="margin-bottom:12px">Tampilan monitor untuk TV Android • Perbarui otomatis</div>
+      <div class="card" style="padding:0">
+        <table id="queueTable" aria-label="Tabel Daftar Antrian">
+          <thead>
+            <tr>
+              <th style="width:120px">No Antrian</th>
+              <th>Nama Tamu</th>
+              <th>Perusahaan</th>
+              <th>Keperluan</th>
+              <th>Tujuan</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+        <div id="empty" class="empty" hidden>Tidak ada antrian yang menunggu.</div>
+      </div>
+      <div class="muted" style="margin-top:12px" id="sourceInfo"></div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * ================== KONFIGURASI ==================
+     */
+    const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS2xoNWZGglMuqUl5NxEcKy0z4iY4Z99C3hKwhrOmmhmuR_muiSlnr9-3y9fE_QQzcYYsVUzrbKhehD/pub?output=csv";
+    const REFRESH_MS = 10000; // 10 detik
+
+    /**
+     * Data contoh (fallback bila gagal ambil sheet)
+     */
+    const SAMPLE_DATA = [
+      { no:"A001", nama:"Budi Santoso", perusahaan:"PT Sejahtera", keperluan:"Penyerahan Dokumen", tujuan:"Customer Service" },
+      { no:"A002", nama:"Sari Wulandari", perusahaan:"CV Maju", keperluan:"Pengambilan Berkas", tujuan:"Operation" },
+    ];
+
+    // ================ UTILITAS ================
+    function parseCSV(text){
+      const lines = text.trim().split(/\r?\n/);
+      if(!lines.length) return [];
+      const header = lines[0].split(',').map(s=>s.trim().toLowerCase());
+      return lines.slice(1).map(line=>{
+        const cells = line.split(',').map(s=>s.trim());
+        const obj={};
+        header.forEach((h,i)=>obj[h]=cells[i] ?? "");
+        return {
+          no: obj.no || obj["no antrian"] || "",
+          nama: obj.nama || obj["nama tamu"] || "",
+          perusahaan: obj.perusahaan || "",
+          keperluan: obj.keperluan || "",
+          tujuan: obj.tujuan || ""
+        };
+      });
+    }
+
+    function renderRows(rows){
+      const tbody = document.getElementById('tbody');
+      const empty = document.getElementById('empty');
+      tbody.innerHTML = '';
+      if(!rows.length){
+        empty.hidden = false;
+        return;
+      }
+      empty.hidden = true;
+      const frag = document.createDocumentFragment();
+      rows.forEach(r=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${escapeHTML(r.no)}</strong></td>
+          <td>${escapeHTML(r.nama)}</td>
+          <td>${escapeHTML(r.perusahaan)}</td>
+          <td>${escapeHTML(r.keperluan)}</td>
+          <td>${escapeHTML(r.tujuan)}</td>
+        `;
+        frag.appendChild(tr);
+      });
+      tbody.appendChild(frag);
+    }
+
+    function escapeHTML(s){
+      return String(s ?? '').replace(/[&<>"']/g, m=>({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'
+      })[m]);
+    }
+
+    async function loadData(){
+      const info = document.getElementById('sourceInfo');
+      if(SHEET_CSV_URL){
+        try{
+          const res = await fetch(SHEET_CSV_URL+"&t="+Date.now(), {cache:'no-store'});
+          if(!res.ok) throw new Error('HTTP '+res.status);
+          const text = await res.text();
+          const rows = parseCSV(text).filter(r=>Object.values(r).some(v=>String(v).trim()!==''));
+          renderRows(rows);
+          info.textContent = `Sumber: Google Sheets (CSV) • ${new Date().toLocaleString()}`;
+          return;
+        }catch(e){
+          console.warn('Gagal mengambil CSV, gunakan SAMPLE_DATA.', e);
+        }
+      }
+      // fallback
+      renderRows(SAMPLE_DATA);
+      info.textContent = `Sumber: Data Lokal • ${new Date().toLocaleString()}`;
+    }
+
+    // ================ AUTO-REFRESH & JAM ================
+    let timer = null;
+    function startAuto(){
+      stopAuto();
+      timer = setInterval(loadData, REFRESH_MS);
+      setToggle(true);
+    }
+    function stopAuto(){ if(timer){ clearInterval(timer); timer=null; } setToggle(false); }
+    function setToggle(on){
+      const btn = document.getElementById('toggleRefresh');
+      btn.classList.toggle('on', !!on);
+      btn.classList.toggle('off', !on);
+      btn.textContent = `Auto-Refresh: ${on?'ON':'OFF'}`;
+      btn.setAttribute('aria-pressed', String(!!on));
+    }
+
+    document.getElementById('toggleRefresh').addEventListener('click',()=>{
+      if(timer){ stopAuto(); } else { startAuto(); loadData(); }
+    });
+
+    function tickClock(){
+      const el = document.getElementById('clock');
+      const d = new Date();
+      const dd = String(d.getDate()).padStart(2,'0');
+      const mo = String(d.getMonth()+1).padStart(2,'0');
+      const yy = d.getFullYear();
+      const hh = String(d.getHours()).padStart(2,'0');
+      const mm = String(d.getMinutes()).padStart(2,'0');
+      el.textContent = `${dd}/${mo}/${yy} ${hh}:${mm}`;
+    }
+    setInterval(tickClock, 1000);
+    tickClock();
+
+    // ================ INISIALISASI ================
+    loadData();
+    startAuto();
+  </script>
+</body>
+</html>

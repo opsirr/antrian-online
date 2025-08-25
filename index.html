@@ -36,7 +36,7 @@
       padding: 12px;
       margin: 6px 0;
       border-bottom: 1px solid #333;
-      transition: background 0.3s;
+      transition: background 0.3s, transform 0.3s;
     }
     .queue-item:hover {
       background: #333;
@@ -46,27 +46,37 @@
       color: #111;
       font-weight: bold;
       border-radius: 8px;
+      transform: scale(1.05);
+    }
+    .fade-in {
+      animation: fadeIn 0.5s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-5px); }
+      to { opacity: 1; transform: translateY(0); }
     }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>📢 Nomor Antrian</h1>
-    <div id="queue" class="queue">Memuat data...</div>
+    <div id="queue" class="queue">⏳ Memuat data...</div>
   </div>
 
   <script>
-    const SHEET_API_URL = "https://script.google.com/macros/s/AKfycbxeLMB7BC8d4sXewzXYgNwkaErAU5tazeNd0F0kRI8e5pl4s2AhKs3WpkWOlFL_iuS3/exec"; // ganti dengan URL dari Apps Script
-    const REFRESH_MS = 1000; // update tiap 1 detik
+    const SHEET_API_URL = "https://script.google.com/macros/s/AKfycbxeLMB7BC8d4sXewzXYgNwkaErAU5tazeNd0F0kRI8e5pl4s2AhKs3WpkWOlFL_iuS3/exec";
+    const REFRESH_MS = 2000; // refresh tiap 2 detik
+
+    let lastFirstNumber = null; // simpan nomor antrian terakhir
 
     async function fetchData() {
       try {
-        const res = await fetch(SHEET_API_URL);
+        const res = await fetch(SHEET_API_URL + "?t=" + Date.now()); // tambahkan timestamp biar tidak cache
         const data = await res.json();
         renderData(data);
       } catch (err) {
         console.error("Fetch error", err);
-        document.getElementById("queue").innerHTML = "<p>Gagal ambil data</p>";
+        document.getElementById("queue").innerHTML = "<p>⚠️ Gagal ambil data</p>";
       }
     }
 
@@ -83,6 +93,13 @@
         const div = document.createElement("div");
         div.className = "queue-item" + (index === 0 ? " highlight" : "");
         div.textContent = `${row.Nomor_Antrian} - ${row.Nama}`;
+
+        // animasi fade-in jika ada nomor baru
+        if (index === 0 && row.Nomor_Antrian !== lastFirstNumber) {
+          div.classList.add("fade-in");
+          lastFirstNumber = row.Nomor_Antrian;
+        }
+
         container.appendChild(div);
       });
     }

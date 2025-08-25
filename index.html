@@ -8,12 +8,12 @@
     table { border-collapse: collapse; width: 100%; margin-top: 20px; }
     th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
     th { background: #f2f2f2; }
-    tr.new-row { background: #d1ffd1; transition: background 1s ease; }
+    tr.new-row { background: #d1ffd1; transition: background 2s ease; }
   </style>
 </head>
 <body>
-  <h2>DAFTAR ANTRIAN TAMU</h2>
-  <div id="datetime"></div>
+  <h2 style="text-align:center;">DAFTAR ANTRIAN TAMU</h2>
+  <div id="datetime" style="text-align:right; font-weight:bold;"></div>
 
   <table id="queueTable">
     <thead>
@@ -32,7 +32,7 @@
 
   <script>
     const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT2UNBBXzJ61Fr9rldXB-E7ULGIt5EOvG1EbNUFqVjpifHoYFaNHFCXJDxnNzL87MgsbLhJoDuYG64X/pub?output=csv";
-    let lastLength = 0;
+    let lastData = [];
 
     function updateDateTime() {
       const now = new Date();
@@ -43,17 +43,23 @@
     updateDateTime();
 
     async function fetchData() {
-      const res = await fetch(sheetUrl);
-      const text = await res.text();
-      const rows = text.trim().split("\n").map(r => r.split(","));
-      render(rows.slice(1)); // skip header asli dari Sheet
+      try {
+        const res = await fetch(sheetUrl + "&t=" + Date.now()); // bypass cache
+        const text = await res.text();
+        const rows = text.trim().split("\n").map(r => r.split(",")).slice(1);
+        render(rows);
+      } catch (err) {
+        console.error("Gagal ambil data:", err);
+      }
     }
 
     function render(data) {
       const tbody = document.getElementById("queueBody");
       tbody.innerHTML = "";
 
-      data.slice().reverse().forEach((row, idx) => {
+      const newEntries = data.filter(d => !lastData.some(ld => ld[0] === d[0]));
+
+      data.slice().reverse().forEach(row => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${row[0] || "-"}</td>
@@ -62,18 +68,19 @@
           <td>${row[3] || "-"}</td>
           <td>${row[4] || "-"}</td>
         `;
-        // highlight row baru
-        if (idx === 0 && data.length > lastLength) {
+        // highlight & bunyi kalau ada data baru
+        if (newEntries.some(ne => ne[0] === row[0])) {
           tr.classList.add("new-row");
           document.getElementById("notifSound").play();
         }
         tbody.appendChild(tr);
       });
 
-      lastLength = data.length;
+      lastData = data;
     }
 
-    setInterval(fetchData, 3000);
+    // lebih cepat refresh, misalnya tiap 1 detik
+    setInterval(fetchData, 1000);
     fetchData();
   </script>
 </body>

@@ -8,20 +8,46 @@
     body { font-family: Arial, sans-serif; padding: 20px; background: #f9f9f9; }
     h1 { text-align: center; margin-bottom: 5px; }
     #datetime { text-align: center; color: #666; margin-bottom: 20px; font-size: 14px; }
-    ul { list-style: none; padding: 0; }
-    li { 
-      background: #fff; 
-      margin: 5px 0; 
-      padding: 10px; 
-      border-radius: 8px; 
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    th, td {
+      padding: 10px;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+    th {
+      background: #f1f1f1;
+      font-weight: bold;
+      text-align: center;
+    }
+    tr:hover {
+      background: #fafafa;
     }
   </style>
 </head>
 <body>
   <h1>📋 Daftar Antrian</h1>
   <div id="datetime"></div>
-  <ul id="queue"></ul>
+
+  <table>
+    <thead>
+      <tr>
+        <th>No Antrian</th>
+        <th>Nama Tamu</th>
+        <th>Keperluan</th>
+        <th>Perusahaan</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="queue"></tbody>
+  </table>
 
   <!-- Suara notifikasi -->
   <audio id="notifSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
@@ -36,7 +62,7 @@
         const res = await fetch(SHEET_CSV_URL);
         const text = await res.text();
         const rows = text.trim().split("\n").map(r => r.split(","));
-        rows.shift(); // buang header
+        rows.shift(); // buang header CSV
 
         // jika ada tambahan data baru
         if (rows.length > lastLength && lastLength > 0) {
@@ -52,12 +78,18 @@
     }
 
     function render(data) {
-      const list = document.getElementById("queue");
-      list.innerHTML = "";
+      const tbody = document.getElementById("queue");
+      tbody.innerHTML = "";
       data.forEach(row => {
-        const li = document.createElement("li");
-        li.textContent = `No: ${row[0]} | Nama: ${row[1] || "-"} | Status: ${row[2] || "-"}`;
-        list.appendChild(li);
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td style="text-align:center">${row[0] || "-"}</td>
+          <td>${row[1] || "-"}</td>
+          <td>${row[2] || "-"}</td>
+          <td>${row[3] || "-"}</td>
+          <td>${row[4] || "-"}</td>
+        `;
+        tbody.appendChild(tr);
       });
     }
 
@@ -74,7 +106,7 @@
     fetchData();
     updateDateTime();
 
-    // lalu interval
+    // interval berkala
     setInterval(fetchData, REFRESH_MS);
     setInterval(updateDateTime, 1000);
   </script>
